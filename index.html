@@ -35,8 +35,8 @@
         #tool-palette {
             position: absolute;
             bottom: 0;
-            width: 100%; /* Match canvas width exactly */
-            box-sizing: border-box; /* Include padding in width */
+            width: 100%;
+            box-sizing: border-box;
             background: rgba(0, 0, 0, 0.8);
             padding: 1%;
             display: flex;
@@ -108,7 +108,7 @@
 </head>
 <body>
     <div id="canvas-container">
-        <div id="instructions">Click a tool to pick up, click canvas to place or drag for dominoes. Left/Right arrows to rotate. Click canvas with no tool to start. ESC to reset. Backspace to remove highlighted object.</div>
+        <div id="instructions">Click a tool to pick up, click canvas to place or drag for dominoes. Left/Right arrows to rotate object or scene. Up/Down arrows to zoom. Click canvas with no tool to start. ESC to reset. Backspace to remove highlighted object.</div>
         <button id="reset-button">Reset Game</button>
         <div id="tool-palette">
             <div id="ball-tool" class="tool" data-type="ball"></div>
@@ -233,7 +233,7 @@
         let objects = [];
         let objectBodies = [];
         let initialStates = [];
-        let plungers = []; // Store plungers separately to track activation
+        let plungers = [];
         // Raycaster for mouse-to-world coordinates
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
@@ -318,12 +318,10 @@
                 if (obj.isGroup) {
                     obj.traverse(child => {
                         if (child.isMesh && child.material && child.userData.originalColor) {
-                            //child.material.color.set(0xffff00); // Highlight with yellow
                             child.material.opacity = 0.7;
                         }
                     });
                 } else if (obj.isMesh && obj.material && obj.userData.originalColor) {
-                   // obj.material.color.set(0xffff00); // Highlight with yellow
                     obj.material.opacity = 0.7;
                 }
             }
@@ -516,7 +514,7 @@
             const material = new THREE.MeshStandardMaterial({ color: 0x0000ff, transparent: true, opacity: 1.0 });
             const mesh = new THREE.Mesh(dominoGeometry, material);
             mesh.userData.originalColor = material.color.clone();
-            mesh.userData.type = 'domino'; // Add type for debugging
+            mesh.userData.type = 'domino';
             const yOffset = DOMINO_HEIGHT / 2;
             mesh.position.set(x, maxHeight + yOffset, z);
             mesh.rotation.y = rotation;
@@ -650,11 +648,10 @@
                 });
             } else if (mesh.isMesh) {
                 if (mesh.geometry) mesh.geometry.dispose();
-                if (mesh.material) mesh.material.dispose();
+                if (mesh.material) child.material.dispose();
             }
             scene.remove(mesh);
             world.removeBody(objectBodies[index]);
-            // Remove from plungers if it's a plunger
             const plungerIndex = plungers.findIndex(p => p.mesh === mesh);
             if (plungerIndex !== -1) {
                 plungers.splice(plungerIndex, 1);
@@ -715,16 +712,12 @@
             const canvas = renderer.domElement;
             const rect = canvas.getBoundingClientRect();
             const scale = 1;
-            // Calculate the offset of the canvas due to centering
             const offsetX = (window.innerWidth - rect.width) / 2;
             const offsetY = (window.innerHeight - rect.height) / 2;
-            // Adjust mouse coordinates to account for scaling and offset
             const adjustedX = (event.clientX - offsetX) / (rect.width * scale);
             const adjustedY = (event.clientY - offsetY) / (rect.height * scale);
-            // Convert to normalized device coordinates (-1 to 1)
             mouse.x = adjustedX * 2 - 1;
             mouse.y = -(adjustedY * 2 - 1);
-            // Clamp coordinates to ensure they stay within valid range
             mouse.x = Math.max(-1, Math.min(1, mouse.x));
             mouse.y = Math.max(-1, Math.min(1, mouse.y));
         }
@@ -750,7 +743,6 @@
                 const intersects = raycaster.intersectObjects(objects, true);
                 if (intersects.length > 0) {
                     let targetObject = intersects[0].object;
-                    // Traverse up to find the top-level object in the objects array
                     while (targetObject.parent && targetObject.parent !== scene) {
                         targetObject = targetObject.parent;
                     }
@@ -909,7 +901,7 @@
                         yOffset = PLUNGER_HEIGHT / 2 + PLUNGER_Y_OFFSET;
                         mesh.position.set(point.x, maxHeight + yOffset, point.z);
                         mesh.rotation.y = currentRotation;
-                        mesh.userData.type = 'plunger'; // Add for the group
+                        mesh.userData.type = 'plunger';
                         scene.add(mesh);
                         body = new CANNON.Body({
                             mass: 0,
@@ -972,8 +964,21 @@
                 console.log('Physics started');
             }
         });
-        // Rotation and deletion controls
+        // Rotation, zoom, and deletion controls
         document.addEventListener('keydown', (event) => {
+            // Handle zooming for up/down arrows in all cases
+            if (event.key === 'ArrowUp') {
+                cameraRadius = Math.max(2.5, cameraRadius - 0.5);
+                camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
+                camera.lookAt(0, 0, 0);
+                console.log('Up arrow (zoom in):', cameraRadius);
+            } else if (event.key === 'ArrowDown') {
+                cameraRadius = Math.min(20, cameraRadius + 0.5);
+                camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
+                camera.lookAt(0, 0, 0);
+                console.log('Down arrow (zoom out):', cameraRadius);
+            }
+            // Handle rotation for left/right arrows
             if (previewMesh && scene.children.includes(previewMesh)) {
                 if (event.key === 'ArrowLeft') {
                     currentRotation += Math.PI / 12;
@@ -984,8 +989,6 @@
                     previewMesh.rotation.y = currentRotation;
                     console.log('Right arrow (object rotation):', currentRotation);
                 }
-            } else if (event.key === 'Backspace' && (!previewMesh || !scene.children.includes(previewMesh))) {
-                deleteHighlightedObject();
             } else {
                 if (event.key === 'ArrowLeft') {
                     cameraAngle += Math.PI / 36;
@@ -997,17 +1000,11 @@
                     camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
                     camera.lookAt(0, 0, 0);
                     console.log('Right arrow (scene rotation):', cameraAngle);
-                } else if (event.key === 'ArrowUp') {
-                    cameraRadius = Math.max(2.5, cameraRadius - 0.5);
-                    camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
-                    camera.lookAt(0, 0, 0);
-                    console.log('Up arrow (zoom in):', cameraRadius);
-                } else if (event.key === 'ArrowDown') {
-                    cameraRadius = Math.min(20, cameraRadius + 0.5);
-                    camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
-                    camera.lookAt(0, 0, 0);
-                    console.log('Down arrow (zoom out):', cameraRadius);
                 }
+            }
+            // Handle deletion
+            if (event.key === 'Backspace' && (!previewMesh || !scene.children.includes(previewMesh))) {
+                deleteHighlightedObject();
             }
         });
         // Reset simulation
