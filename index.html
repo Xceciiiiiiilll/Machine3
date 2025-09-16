@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Machine 3</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #404040;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #canvas-container {
+            transform: scale(0.5);
+            transform-origin: center center;
+            position: relative;
+        }
+        canvas {
+            display: block;
+        }
+        #instructions {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+        }
+        #tool-palette {
+            position: absolute;
+            bottom: 0;
+            width: 100%; /* Match canvas width exactly */
+            box-sizing: border-box; /* Include padding in width */
+            background: rgba(0, 0, 0, 0.8);
+            padding: 1%;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .tool {
+            width: 25px;
+            height: 25px;
+            background-size: cover;
+            cursor: pointer;
+        }
+        .tool:hover {
+            opacity: 0.8;
+        }
+        .tool.selected {
+            border: 1px solid yellow;
+        }
+        #ball-tool {
+            background-color: red;
+            border-radius: 50%;
+        }
+        #domino-tool {
+            background-color: blue;
+            width: 10px;
+            height: 25px;
+        }
+        #box-tool {
+            background-color: green;
+        }
+        #plank-tool {
+            background-color: brown;
+            width: 40px;
+            height: 10px;
+        }
+        #plunger-tool {
+            background-color: silver;
+            width: 30px;
+            height: 15px;
+        }
+        #reset-button {
+            position: absolute;
+            top: 50px;
+            left: 5px;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            border: none;
+            cursor: pointer;
+            border-radius: 2.5px;
+        }
+        #reset-button:hover {
+            background: rgba(50, 50, 50, 0.8);
+        }
+        #footer {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 2.5px 5px;
+            border-radius: 2.5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <div id="instructions">Click a tool to pick up, click canvas to place or drag for dominoes. Left/Right arrows to rotate. Click canvas with no tool to start. ESC to reset. Backspace to remove highlighted object.</div>
+        <button id="reset-button">Reset Game</button>
+        <div id="tool-palette">
+            <div id="ball-tool" class="tool" data-type="ball"></div>
+            <div id="domino-tool" class="tool" data-type="domino"></div>
+            <div id="box-tool" class="tool" data-type="box"></div>
+            <div id="plank-tool" class="tool" data-type="plank"></div>
+            <div id="plunger-tool" class="tool" data-type="plunger"></div>
+        </div>
+        <div id="footer">© 2025 Xcecil @AGI_is_solved. All rights reserved.</div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+    <script>
+        /*
+         * Copyright (c) 2025 Your Name
+         * Licensed under the MIT License.
+         *
+         * Permission is hereby granted, free of charge, to any person obtaining a copy
+         * of this software and associated documentation files (the "Software"), to deal
+         * in the Software without restriction, including without limitation the rights
+         * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+         * copies of the Software, and to permit persons to whom the Software is
+         * furnished to do so, subject to the following conditions:
+         *
+         * The above copyright notice and this permission notice shall be included in all
+         * copies or substantial portions of the Software.
+         *
+         * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         * SOFTWARE.
+         */
+        // Verify Cannon.js is loaded
+        console.log('CANNON loaded:', typeof CANNON !== 'undefined' && typeof CANNON.Vec3 === 'function' && typeof CANNON.Quaternion === 'function');
+        // Set up the scene, camera, and renderer
+        let scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 500);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        // Ensure canvas is focusable for key events
+        renderer.domElement.tabIndex = 0;
+        renderer.domElement.focus();
+        // Isometric camera position, scaled down
+        let cameraAngle = Math.PI / 4;
+        let cameraRadius = Math.sqrt(5 * 5 + 5 * 5);
+        camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
+        camera.lookAt(0, 0, 0);
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        directionalLight.position.set(5, 5, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 512;
+        directionalLight.shadow.mapSize.height = 512;
+        directionalLight.shadow.camera.near = 0.25;
+        directionalLight.shadow.camera.far = 25;
+        scene.add(directionalLight);
+        // Set up physics world
+        let world = new CANNON.World();
+        world.gravity.set(0, -9.82, 0);
+        // Materials
+        const groundMaterial = new CANNON.Material('groundMaterial');
+        const dominoMaterial = new CANNON.Material('dominoMaterial');
+        dominoMaterial.friction = 0.05;
+        dominoMaterial.restitution = 0.2;
+        const ballMaterial = new CANNON.Material('ballMaterial');
+        const plungerMaterial = new CANNON.Material('plungerMaterial');
+        // Contact material for domino-ground interaction
+        const dominoGroundContact = new CANNON.ContactMaterial(groundMaterial, dominoMaterial, {
+            friction: 0.1,
+            restitution: 0.2
+        });
+        world.addContactMaterial(dominoGroundContact);
+        // Contact material for domino-domino interaction
+        const dominoDominoContact = new CANNON.ContactMaterial(dominoMaterial, dominoMaterial, {
+            friction: 0.1,
+            restitution: 0.2
+        });
+        world.addContactMaterial(dominoDominoContact);
+        // Contact material for plunger-object interactions
+        const plungerBallContact = new CANNON.ContactMaterial(plungerMaterial, ballMaterial, {
+            friction: 0.1,
+            restitution: 0.5
+        });
+        world.addContactMaterial(plungerBallContact);
+        const plungerDominoContact = new CANNON.ContactMaterial(plungerMaterial, dominoMaterial, {
+            friction: 0.1,
+            restitution: 0.5
+        });
+        world.addContactMaterial(plungerDominoContact);
+        // Ground
+        let groundBody = new CANNON.Body({
+            mass: 0,
+            shape: new CANNON.Plane(),
+            material: groundMaterial
+        });
+        groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+        world.addBody(groundBody);
+        const groundGeometry = new THREE.PlaneGeometry(25, 25);
+        const groundMesh = new THREE.Mesh(
+            groundGeometry,
+            new THREE.MeshStandardMaterial({ color: 0xaaaaaa })
+        );
+        groundMesh.rotation.x = -Math.PI / 2;
+        groundMesh.receiveShadow = true;
+        scene.add(groundMesh);
+        // Preview object
+        let previewMesh = null;
+        let previewType = null;
+        let selectedTool = null;
+        let highlightedObject = null;
+        const MAX_PREVIEW_DOMINOES = 100;
+        let previewDominoes = [];
+        // Arrays to store objects and initial states
+        let objects = [];
+        let objectBodies = [];
+        let initialStates = [];
+        let plungers = []; // Store plungers separately to track activation
+        // Raycaster for mouse-to-world coordinates
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        // Rotation state
+        let currentRotation = 0;
+        // Drag handling for dominoes
+        let isDragging = false;
+        let dragPath = [];
+        const DOMINO_SPACING = 0.65;
+        const DOMINO_WIDTH = 0.1;
+        const DOMINO_DEPTH = 0.5;
+        const DOMINO_HEIGHT = 0.95;
+        const MIN_DOMINO_SEPARATION = DOMINO_SPACING * 0.8;
+        const PLUNGER_WIDTH = 0.25;
+        const PLUNGER_HEIGHT = 0.15;
+        const PLUNGER_LENGTH = 0.75;
+        const PLUNGER_SPEED = 2.5;
+        const PLUNGER_ACTIVATION_DURATION = 8;
+        const PLUNGER_Y_OFFSET = 0.4;
+        // Function to create and store initial state with fallback
+        function createInitialState(x, y, z, rotation) {
+            let initialState;
+            try {
+                const position = new CANNON.Vec3(x, y, z);
+                const quaternion = new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(0, 1, 0), rotation);
+                if (isNaN(position.x) || isNaN(position.y) || isNaN(position.z) ||
+                    isNaN(quaternion.x) || isNaN(quaternion.y) || isNaN(quaternion.z) || isNaN(quaternion.w)) {
+                    throw new Error('Invalid Cannon.js values');
+                }
+                initialState = { position, quaternion, type: 'cannon' };
+            } catch (error) {
+                console.warn('Cannon.js initial state failed, using fallback:', error);
+                initialState = {
+                    position: { x, y, z },
+                    quaternion: { x: 0, y: Math.sin(rotation / 2), z: 0, w: Math.cos(rotation / 2) },
+                    type: 'fallback'
+                };
+            }
+            return initialState;
+        }
+        // Initialize domino preview pool
+        function initializePreviewDominoes() {
+            const geometry = new THREE.BoxGeometry(DOMINO_WIDTH, DOMINO_HEIGHT, DOMINO_DEPTH);
+            const material = new THREE.MeshStandardMaterial({ color: 0x0000ff, transparent: true, opacity: 0.5 });
+            for (let i = 0; i < MAX_PREVIEW_DOMINOES; i++) {
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = true;
+                mesh.visible = false;
+                scene.add(mesh);
+                previewDominoes.push(mesh);
+            }
+        }
+        initializePreviewDominoes();
+        // Function to clear domino previews
+        function clearPreviewDominoes() {
+            previewDominoes.forEach(mesh => {
+                mesh.visible = false;
+            });
+        }
+        // Function to reset highlight on all objects
+        function resetHighlights() {
+            objects.forEach(obj => {
+                if (obj.isGroup) {
+                    obj.traverse(child => {
+                        if (child.isMesh && child.material && child.userData.originalColor) {
+                            child.material.color.set(child.userData.originalColor);
+                            child.material.opacity = 1.0;
+                        }
+                    });
+                } else if (obj.isMesh && obj.material && obj.userData.originalColor) {
+                    obj.material.color.set(obj.userData.originalColor);
+                    obj.material.opacity = 1.0;
+                }
+            });
+            highlightedObject = null;
+        }
+        // Function to highlight an object
+        function highlightObject(obj) {
+            resetHighlights();
+            if (obj) {
+                highlightedObject = obj;
+                if (obj.isGroup) {
+                    obj.traverse(child => {
+                        if (child.isMesh && child.material && child.userData.originalColor) {
+                            //child.material.color.set(0xffff00); // Highlight with yellow
+                            child.material.opacity = 0.7;
+                        }
+                    });
+                } else if (obj.isMesh && obj.material && obj.userData.originalColor) {
+                   // obj.material.color.set(0xffff00); // Highlight with yellow
+                    obj.material.opacity = 0.7;
+                }
+            }
+        }
+        // Function to check for overlap and get max height
+        function getPlacementHeight(x, z, objectType, rotation) {
+            let maxHeight = 0;
+            let canPlace = true;
+            const yOffset = objectType === 'ball' ? 0.25 :
+                            objectType === 'domino' ? 0.5 :
+                            objectType === 'box' ? 0.5 :
+                            objectType === 'plank' ? 0.1 :
+                            PLUNGER_HEIGHT / 2;
+            const tempGeometry = objectType === 'ball' ? new THREE.SphereGeometry(0.25, 32, 32) :
+                                objectType === 'domino' ? new THREE.BoxGeometry(DOMINO_WIDTH, DOMINO_HEIGHT, DOMINO_DEPTH) :
+                                objectType === 'box' ? new THREE.BoxGeometry(1, 1, 1) :
+                                objectType === 'plank' ? new THREE.BoxGeometry(4, 0.2, 1) :
+                                new THREE.BoxGeometry(PLUNGER_WIDTH, PLUNGER_HEIGHT, PLUNGER_LENGTH);
+            const tempMesh = new THREE.Mesh(tempGeometry);
+            tempMesh.position.set(x, yOffset, z);
+            tempMesh.rotation.y = rotation;
+            tempMesh.updateMatrixWorld();
+            const newBounds = new THREE.Box3().setFromObject(tempMesh);
+            for (let i = 0; i < objects.length; i++) {
+                const existingMesh = objects[i];
+                existingMesh.updateMatrixWorld();
+                const existingBounds = new THREE.Box3().setFromObject(existingMesh);
+                const overlapsXZ = Math.abs(x - existingMesh.position.x) < (newBounds.max.x - newBounds.min.x + existingBounds.max.x - existingBounds.min.x) / 2 &&
+                                  Math.abs(z - existingMesh.position.z) < (newBounds.max.z - newBounds.min.z + existingBounds.max.z - existingBounds.min.z) / 2;
+                if (overlapsXZ) {
+                    maxHeight = Math.max(maxHeight, existingBounds.max.y);
+                    if (objectType === 'domino') {
+                        let isDomino = false;
+                        if (existingMesh.isMesh && existingMesh.geometry && existingMesh.geometry.parameters) {
+                            isDomino = existingMesh.geometry.parameters.width === DOMINO_WIDTH &&
+                                       existingMesh.geometry.parameters.height === DOMINO_HEIGHT &&
+                                       existingMesh.geometry.parameters.depth === DOMINO_DEPTH;
+                        } else if (existingMesh.isGroup) {
+                            existingMesh.traverse(child => {
+                                if (child.isMesh && child.geometry && child.geometry.parameters) {
+                                    isDomino = isDomino || (
+                                        child.geometry.parameters.width === DOMINO_WIDTH &&
+                                        child.geometry.parameters.height === DOMINO_HEIGHT &&
+                                        child.geometry.parameters.depth === DOMINO_DEPTH
+                                    );
+                                }
+                            });
+                        }
+                        if (isDomino) {
+                            canPlace = false;
+                        }
+                    }
+                }
+            }
+            if (objectType === 'domino' && canPlace) {
+                for (let i = 0; i < objects.length; i++) {
+                    const existingMesh = objects[i];
+                    let isDomino = false;
+                    if (existingMesh.isMesh && existingMesh.geometry && existingMesh.geometry.parameters) {
+                        isDomino = existingMesh.geometry.parameters.width === DOMINO_WIDTH &&
+                                   existingMesh.geometry.parameters.height === DOMINO_HEIGHT &&
+                                   existingMesh.geometry.parameters.depth === DOMINO_DEPTH;
+                    } else if (existingMesh.isGroup) {
+                        existingMesh.traverse(child => {
+                            if (child.isMesh && child.geometry && child.geometry.parameters) {
+                                isDomino = isDomino || (
+                                    child.geometry.parameters.width === DOMINO_WIDTH &&
+                                    child.geometry.parameters.height === DOMINO_HEIGHT &&
+                                    child.geometry.parameters.depth === DOMINO_DEPTH
+                                );
+                            }
+                        });
+                    }
+                    if (isDomino) {
+                        const dx = x - existingMesh.position.x;
+                        const dz = z - existingMesh.position.z;
+                        const distance = Math.sqrt(dx * dx + dz * dz);
+                        if (distance < MIN_DOMINO_SEPARATION) {
+                            canPlace = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            tempMesh.geometry.dispose();
+            return { maxHeight, canPlace };
+        }
+        // Function to create preview mesh (for single objects)
+        function createPreviewMesh(type) {
+            if (previewMesh) {
+                scene.remove(previewMesh);
+                if (previewMesh.isGroup) {
+                    previewMesh.traverse(child => {
+                        if (child.isMesh) {
+                            if (child.geometry) child.geometry.dispose();
+                            if (child.material) child.material.dispose();
+                        }
+                    });
+                } else if (previewMesh.isMesh) {
+                    if (previewMesh.geometry) previewMesh.geometry.dispose();
+                    if (previewMesh.material) previewMesh.material.dispose();
+                }
+                previewMesh = null;
+            }
+            let geometry, material, arrowGeometry, arrowMaterial;
+            if (type === 'ball') {
+                geometry = new THREE.SphereGeometry(0.25, 32, 32);
+                material = new THREE.MeshStandardMaterial({ color: 0xff0000, transparent: true, opacity: 0.5 });
+                previewMesh = new THREE.Mesh(geometry, material);
+            } else if (type === 'domino') {
+                geometry = new THREE.BoxGeometry(DOMINO_WIDTH, DOMINO_HEIGHT, DOMINO_DEPTH);
+                material = new THREE.MeshStandardMaterial({ color: 0x0000ff, transparent: true, opacity: 0.5 });
+                previewMesh = new THREE.Mesh(geometry, material);
+            } else if (type === 'box') {
+                geometry = new THREE.BoxGeometry(1, 1, 1);
+                material = new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
+                previewMesh = new THREE.Mesh(geometry, material);
+            } else if (type === 'plank') {
+                geometry = new THREE.BoxGeometry(4, 0.2, 1);
+                material = new THREE.MeshStandardMaterial({ color: 0x8b4513, transparent: true, opacity: 0.5 });
+                previewMesh = new THREE.Mesh(geometry, material);
+            } else if (type === 'plunger') {
+                previewMesh = new THREE.Group();
+                geometry = new THREE.BoxGeometry(PLUNGER_WIDTH, PLUNGER_HEIGHT, PLUNGER_LENGTH);
+                material = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, transparent: true, opacity: 0.5 });
+                const boxMesh = new THREE.Mesh(geometry, material);
+                previewMesh.add(boxMesh);
+                arrowGeometry = new THREE.ConeGeometry(0.1, 0.25, 32);
+                arrowMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, transparent: true, opacity: 0.5 });
+                const arrowMesh = new THREE.Mesh(arrowGeometry, arrowMaterial);
+                arrowMesh.position.set(0, PLUNGER_HEIGHT / 2 + 0.05, 0);
+                arrowMesh.rotation.x = Math.PI / 2;
+                previewMesh.add(arrowMesh);
+            }
+            previewMesh.castShadow = true;
+            return previewMesh;
+        }
+        // Function to update domino previews along path
+        function updateDominoPreviews(path) {
+            clearPreviewDominoes();
+            if (path.length < 2) return;
+            let totalDistance = 0;
+            let segments = [];
+            for (let i = 1; i < path.length; i++) {
+                const p1 = path[i - 1];
+                const p2 = path[i];
+                const dx = p2.x - p1.x;
+                const dz = p2.z - p1.z;
+                const segmentLength = Math.sqrt(dx * dx + dz * dz);
+                totalDistance += segmentLength;
+                segments.push({ p1, p2, length: segmentLength, direction: { x: dx / (segmentLength || 1), z: dz / (segmentLength || 1) } });
+            }
+            let distanceCovered = 0;
+            let previewIndex = 0;
+            while (distanceCovered < totalDistance && previewIndex < MAX_PREVIEW_DOMINOES) {
+                let currentDistance = distanceCovered;
+                let segmentIndex = 0;
+                let segmentDistance = 0;
+                for (let i = 0; i < segments.length; i++) {
+                    if (currentDistance < segments[i].length) {
+                        segmentIndex = i;
+                        segmentDistance = currentDistance;
+                        break;
+                    }
+                    currentDistance -= segments[i].length;
+                }
+                const t = segmentDistance / segments[segmentIndex].length;
+                const x = segments[segmentIndex].p1.x + t * (segments[segmentIndex].p2.x - segments[segmentIndex].p1.x);
+                const z = segments[segmentIndex].p1.z + t * (segments[segmentIndex].p2.z - segments[segmentIndex].p1.z);
+                const direction = segments[segmentIndex].direction;
+                const rotation = Math.atan2(direction.x, direction.z) + Math.PI / 2;
+                const { maxHeight, canPlace } = getPlacementHeight(x, z, 'domino', rotation);
+                if (canPlace) {
+                    const mesh = previewDominoes[previewIndex];
+                    mesh.position.set(x, maxHeight + DOMINO_HEIGHT / 2, z);
+                    mesh.rotation.y = rotation;
+                    mesh.visible = true;
+                    previewIndex++;
+                }
+                distanceCovered += DOMINO_SPACING;
+            }
+        }
+        // Function to place a single domino
+        function placeSingleDomino(x, z, rotation, maxHeight, canPlace) {
+            if (!canPlace) {
+                console.log('Domino placement skipped due to overlap at:', { x, z });
+                return;
+            }
+            const dominoGeometry = new THREE.BoxGeometry(DOMINO_WIDTH, DOMINO_HEIGHT, DOMINO_DEPTH);
+            const material = new THREE.MeshStandardMaterial({ color: 0x0000ff, transparent: true, opacity: 1.0 });
+            const mesh = new THREE.Mesh(dominoGeometry, material);
+            mesh.userData.originalColor = material.color.clone();
+            mesh.userData.type = 'domino'; // Add type for debugging
+            const yOffset = DOMINO_HEIGHT / 2;
+            mesh.position.set(x, maxHeight + yOffset, z);
+            mesh.rotation.y = rotation;
+            mesh.castShadow = true;
+            scene.add(mesh);
+            const body = new CANNON.Body({
+                mass: 0.0075,
+                shape: new CANNON.Box(new CANNON.Vec3(DOMINO_WIDTH / 2, DOMINO_HEIGHT / 2, DOMINO_DEPTH / 2)),
+                material: dominoMaterial
+            });
+            body.position.set(x, maxHeight + yOffset, z);
+            body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), rotation);
+            world.addBody(body);
+            const initialState = createInitialState(x, maxHeight + yOffset, z, rotation);
+            objects.push(mesh);
+            objectBodies.push(body);
+            initialStates.push(initialState);
+        }
+        // Function to place dominoes along a path
+        function placeDominoesAlongPath(path) {
+            if (path.length < 2) return;
+            let totalDistance = 0;
+            let segments = [];
+            for (let i = 1; i < path.length; i++) {
+                const p1 = path[i - 1];
+                const p2 = path[i];
+                const dx = p2.x - p1.x;
+                const dz = p2.z - p1.z;
+                const segmentLength = Math.sqrt(dx * dx + dz * dz);
+                totalDistance += segmentLength;
+                segments.push({ p1, p2, length: segmentLength, direction: { x: dx / (segmentLength || 1), z: dz / (segmentLength || 1) } });
+            }
+            let distanceCovered = 0;
+            while (distanceCovered < totalDistance) {
+                let currentDistance = distanceCovered;
+                let segmentIndex = 0;
+                let segmentDistance = 0;
+                for (let i = 0; i < segments.length; i++) {
+                    if (currentDistance < segments[i].length) {
+                        segmentIndex = i;
+                        segmentDistance = currentDistance;
+                        break;
+                    }
+                    currentDistance -= segments[i].length;
+                }
+                const t = segmentDistance / segments[segmentIndex].length;
+                const x = segments[segmentIndex].p1.x + t * (segments[segmentIndex].p2.x - segments[segmentIndex].p1.x);
+                const z = segments[segmentIndex].p1.z + t * (segments[segmentIndex].p2.z - segments[segmentIndex].p1.z);
+                const direction = segments[segmentIndex].direction;
+                const rotation = Math.atan2(direction.x, direction.z) + Math.PI / 2;
+                const { maxHeight, canPlace } = getPlacementHeight(x, z, 'domino', rotation);
+                placeSingleDomino(x, z, rotation, maxHeight, canPlace);
+                distanceCovered += DOMINO_SPACING;
+            }
+        }
+        // Function to reset the game by clearing all user-placed objects
+        function resetGame() {
+            console.log('Reset button clicked, clearing all user-placed objects');
+            objects.forEach((mesh, index) => {
+                console.log(`Disposing object ${index}:`, { isMesh: mesh.isMesh, isGroup: mesh.isGroup });
+                if (mesh.isGroup) {
+                    mesh.traverse(child => {
+                        if (child.isMesh) {
+                            if (child.geometry) child.geometry.dispose();
+                            if (child.material) child.material.dispose();
+                        }
+                    });
+                } else if (mesh.isMesh) {
+                    if (mesh.geometry) mesh.geometry.dispose();
+                    if (mesh.material) mesh.material.dispose();
+                }
+                scene.remove(mesh);
+            });
+            objectBodies.forEach(body => {
+                world.removeBody(body);
+            });
+            objects = [];
+            objectBodies = [];
+            initialStates = [];
+            plungers = [];
+            isStarted = false;
+            currentRotation = 0;
+            if (previewMesh) {
+                if (previewMesh.isGroup) {
+                    previewMesh.traverse(child => {
+                        if (child.isMesh) {
+                            if (child.geometry) child.geometry.dispose();
+                            if (child.material) child.material.dispose();
+                        }
+                    });
+                } else if (previewMesh.isMesh) {
+                    if (previewMesh.geometry) previewMesh.geometry.dispose();
+                    if (previewMesh.material) previewMesh.material.dispose();
+                }
+                scene.remove(previewMesh);
+                previewMesh = null;
+            }
+            clearPreviewDominoes();
+            previewType = null;
+            if (selectedTool) {
+                selectedTool.classList.remove('selected');
+                selectedTool = null;
+            }
+            resetHighlights();
+            document.getElementById('instructions').style.display = 'block';
+            document.getElementById('tool-palette').style.display = 'flex';
+            document.getElementById('reset-button').style.display = 'block';
+            document.getElementById('footer').style.display = 'block';
+            renderer.domElement.focus();
+            console.log('Game reset, all objects cleared, isStarted:', isStarted);
+        }
+        // Function to delete the highlighted object
+        function deleteHighlightedObject() {
+            if (!highlightedObject || isStarted) {
+                console.log('No object highlighted or simulation is started');
+                return;
+            }
+            const index = objects.indexOf(highlightedObject);
+            if (index === -1) {
+                console.log('Highlighted object not found in objects array');
+                return;
+            }
+            console.log(`Deleting object at index ${index}, type: ${highlightedObject.userData.type || 'unknown'}`);
+            const mesh = objects[index];
+            if (mesh.isGroup) {
+                mesh.traverse(child => {
+                    if (child.isMesh) {
+                        if (child.geometry) child.geometry.dispose();
+                        if (child.material) child.material.dispose();
+                    }
+                });
+            } else if (mesh.isMesh) {
+                if (mesh.geometry) mesh.geometry.dispose();
+                if (mesh.material) mesh.material.dispose();
+            }
+            scene.remove(mesh);
+            world.removeBody(objectBodies[index]);
+            // Remove from plungers if it's a plunger
+            const plungerIndex = plungers.findIndex(p => p.mesh === mesh);
+            if (plungerIndex !== -1) {
+                plungers.splice(plungerIndex, 1);
+            }
+            objects.splice(index, 1);
+            objectBodies.splice(index, 1);
+            initialStates.splice(index, 1);
+            resetHighlights();
+            console.log('Object deleted, arrays updated:', {
+                objects: objects.length,
+                objectBodies: objectBodies.length,
+                initialStates: initialStates.length,
+                plungers: plungers.length
+            });
+        }
+        // Click handling for tools
+        const palette = document.getElementById('tool-palette');
+        let isStarted = false;
+        palette.addEventListener('click', (event) => {
+            if (isStarted) return;
+            const target = event.target.closest('.tool');
+            if (!target) return;
+            if (selectedTool) {
+                selectedTool.classList.remove('selected');
+            }
+            if (selectedTool === target) {
+                selectedTool = null;
+                previewType = null;
+                if (previewMesh) {
+                    if (previewMesh.isGroup) {
+                        previewMesh.traverse(child => {
+                            if (child.isMesh) {
+                                if (child.geometry) child.geometry.dispose();
+                                if (child.material) child.material.dispose();
+                            }
+                        });
+                    } else if (previewMesh.isMesh) {
+                        if (previewMesh.geometry) previewMesh.geometry.dispose();
+                        if (previewMesh.material) previewMesh.material.dispose();
+                    }
+                    scene.remove(previewMesh);
+                    previewMesh = null;
+                }
+                clearPreviewDominoes();
+            } else {
+                selectedTool = target;
+                selectedTool.classList.add('selected');
+                previewType = target.dataset.type;
+                createPreviewMesh(previewType);
+                currentRotation = 0;
+                clearPreviewDominoes();
+            }
+        });
+        // Reset button event listener
+        document.getElementById('reset-button').addEventListener('click', resetGame);
+        // Function to adjust mouse coordinates for scaled canvas
+        function adjustMouseCoordinates(event) {
+            const canvas = renderer.domElement;
+            const rect = canvas.getBoundingClientRect();
+            const scale = 1;
+            // Calculate the offset of the canvas due to centering
+            const offsetX = (window.innerWidth - rect.width) / 2;
+            const offsetY = (window.innerHeight - rect.height) / 2;
+            // Adjust mouse coordinates to account for scaling and offset
+            const adjustedX = (event.clientX - offsetX) / (rect.width * scale);
+            const adjustedY = (event.clientY - offsetY) / (rect.height * scale);
+            // Convert to normalized device coordinates (-1 to 1)
+            mouse.x = adjustedX * 2 - 1;
+            mouse.y = -(adjustedY * 2 - 1);
+            // Clamp coordinates to ensure they stay within valid range
+            mouse.x = Math.max(-1, Math.min(1, mouse.x));
+            mouse.y = Math.max(-1, Math.min(1, mouse.y));
+        }
+        // Mouse event listeners
+        renderer.domElement.addEventListener('mousedown', (event) => {
+            if (isStarted || !selectedTool) return;
+            isDragging = true;
+            dragPath = [];
+            adjustMouseCoordinates(event);
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([...objects, groundMesh]);
+            if (intersects.length > 0) {
+                const point = intersects[0].point;
+                if (selectedTool.dataset.type === 'domino') {
+                    dragPath.push({ x: point.x, z: point.z });
+                }
+            }
+        });
+        renderer.domElement.addEventListener('mousemove', (event) => {
+            adjustMouseCoordinates(event);
+            raycaster.setFromCamera(mouse, camera);
+            if (!isStarted && !previewType) {
+                const intersects = raycaster.intersectObjects(objects, true);
+                if (intersects.length > 0) {
+                    let targetObject = intersects[0].object;
+                    // Traverse up to find the top-level object in the objects array
+                    while (targetObject.parent && targetObject.parent !== scene) {
+                        targetObject = targetObject.parent;
+                    }
+                    if (objects.includes(targetObject)) {
+                        console.log('Highlighting object:', { type: targetObject.userData.type || 'unknown', position: targetObject.position });
+                        highlightObject(targetObject);
+                    } else {
+                        console.log('Object not in objects array, resetting highlights');
+                        resetHighlights();
+                    }
+                } else {
+                    resetHighlights();
+                }
+            }
+            if (!isStarted && (previewType || isDragging)) {
+                const groundIntersects = raycaster.intersectObjects([...objects, groundMesh]);
+                if (groundIntersects.length > 0) {
+                    const point = groundIntersects[0].point;
+                    if (isDragging && selectedTool && selectedTool.dataset.type === 'domino') {
+                        dragPath.push({ x: point.x, z: point.z });
+                        updateDominoPreviews(dragPath);
+                    } else if (previewType) {
+                        if (previewMesh && !scene.children.includes(previewMesh)) {
+                            scene.add(previewMesh);
+                        }
+                        const yOffset = previewType === 'ball' ? 0.25 :
+                                        previewType === 'domino' ? 0.5 :
+                                        previewType === 'box' ? 0.5 :
+                                        previewType === 'plank' ? 0.1 :
+                                        PLUNGER_HEIGHT / 2 + PLUNGER_Y_OFFSET;
+                        const { maxHeight, canPlace } = getPlacementHeight(point.x, point.z, previewType, currentRotation);
+                        previewMesh.position.set(point.x, maxHeight + yOffset, point.z);
+                        previewMesh.rotation.y = currentRotation;
+                        previewMesh.visible = (previewType === 'domino') ? canPlace : true;
+                    }
+                }
+            }
+        });
+        renderer.domElement.addEventListener('mouseup', (event) => {
+            if (isStarted) return;
+            isDragging = false;
+            if (selectedTool && selectedTool.dataset.type === 'domino') {
+                clearPreviewDominoes();
+                if (dragPath.length === 1) {
+                    const point = dragPath[0];
+                    const { maxHeight, canPlace } = getPlacementHeight(point.x, point.z, 'domino', currentRotation);
+                    placeSingleDomino(point.x, point.z, currentRotation, maxHeight, canPlace);
+                } else if (dragPath.length > 1) {
+                    placeDominoesAlongPath(dragPath);
+                }
+                dragPath = [];
+                selectedTool.classList.remove('selected');
+                selectedTool = null;
+                previewType = null;
+                if (previewMesh) {
+                    if (previewMesh.isGroup) {
+                        previewMesh.traverse(child => {
+                            if (child.isMesh) {
+                                if (child.geometry) child.geometry.dispose();
+                                if (child.material) child.material.dispose();
+                            }
+                        });
+                    } else if (previewMesh.isMesh) {
+                        if (previewMesh.geometry) previewMesh.geometry.dispose();
+                        if (previewMesh.material) previewMesh.material.dispose();
+                    }
+                    scene.remove(previewMesh);
+                    previewMesh = null;
+                }
+            } else if (selectedTool) {
+                adjustMouseCoordinates(event);
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects([...objects, groundMesh]);
+                if (intersects.length > 0) {
+                    const point = intersects[0].point;
+                    const type = previewType;
+                    const { maxHeight, canPlace } = getPlacementHeight(point.x, point.z, type, currentRotation);
+                    if (!canPlace && type === 'domino') {
+                        console.log('Non-domino placement skipped due to overlap at:', { x: point.x, z: point.z });
+                        return;
+                    }
+                    let mesh, body, yOffset;
+                    if (type === 'ball') {
+                        const ballGeometry = new THREE.SphereGeometry(0.25, 32, 32);
+                        const material = new THREE.MeshStandardMaterial({ color: 0xff0000, transparent: true, opacity: 1.0 });
+                        mesh = new THREE.Mesh(ballGeometry, material);
+                        mesh.userData.originalColor = material.color.clone();
+                        mesh.userData.type = 'ball';
+                        yOffset = 0.25;
+                        mesh.position.set(point.x, maxHeight + yOffset, point.z);
+                        mesh.rotation.y = currentRotation;
+                        mesh.castShadow = true;
+                        scene.add(mesh);
+                        body = new CANNON.Body({
+                            mass: 0.125,
+                            shape: new CANNON.Sphere(0.25),
+                            material: ballMaterial
+                        });
+                        body.position.set(point.x, maxHeight + yOffset, point.z);
+                        body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), currentRotation);
+                        world.addBody(body);
+                    } else if (type === 'box') {
+                        const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+                        const material = new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 1.0 });
+                        mesh = new THREE.Mesh(boxGeometry, material);
+                        mesh.userData.originalColor = material.color.clone();
+                        mesh.userData.type = 'box';
+                        yOffset = 0.5;
+                        mesh.position.set(point.x, maxHeight + yOffset, point.z);
+                        mesh.rotation.y = currentRotation;
+                        mesh.castShadow = true;
+                        scene.add(mesh);
+                        body = new CANNON.Body({
+                            mass: 2.5,
+                            shape: new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5)),
+                        });
+                        body.position.set(point.x, maxHeight + yOffset, point.z);
+                        body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), currentRotation);
+                        world.addBody(body);
+                    } else if (type === 'plank') {
+                        const plankGeometry = new THREE.BoxGeometry(4, 0.2, 1);
+                        const material = new THREE.MeshStandardMaterial({ color: 0x8b4513, transparent: true, opacity: 1.0 });
+                        mesh = new THREE.Mesh(plankGeometry, material);
+                        mesh.userData.originalColor = material.color.clone();
+                        mesh.userData.type = 'plank';
+                        yOffset = 0.1;
+                        mesh.position.set(point.x, maxHeight + yOffset, point.z);
+                        mesh.rotation.y = currentRotation;
+                        mesh.castShadow = true;
+                        scene.add(mesh);
+                        body = new CANNON.Body({
+                            mass: 2.5,
+                            shape: new CANNON.Box(new CANNON.Vec3(2, 0.1, 0.5)),
+                        });
+                        body.position.set(point.x, maxHeight + yOffset, point.z);
+                        body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), currentRotation);
+                        world.addBody(body);
+                    } else if (type === 'plunger') {
+                        mesh = new THREE.Group();
+                        const plungerGeometry = new THREE.BoxGeometry(PLUNGER_WIDTH, PLUNGER_HEIGHT, PLUNGER_LENGTH);
+                        const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, transparent: true, opacity: 1.0 });
+                        const boxMesh = new THREE.Mesh(plungerGeometry, boxMaterial);
+                        boxMesh.userData.originalColor = boxMaterial.color.clone();
+                        boxMesh.userData.type = 'plunger';
+                        boxMesh.castShadow = true;
+                        mesh.add(boxMesh);
+                        const arrowGeometry = new THREE.ConeGeometry(0.1, 0.25, 32);
+                        const arrowMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, transparent: true, opacity: 1.0 });
+                        const arrowMesh = new THREE.Mesh(arrowGeometry, arrowMaterial);
+                        arrowMesh.userData.originalColor = arrowMaterial.color.clone();
+                        arrowMesh.userData.type = 'plunger_arrow';
+                        arrowMesh.position.set(0, PLUNGER_HEIGHT / 2 + 0.05, 0);
+                        arrowMesh.rotation.x = Math.PI / 2;
+                        arrowMesh.castShadow = true;
+                        mesh.add(arrowMesh);
+                        yOffset = PLUNGER_HEIGHT / 2 + PLUNGER_Y_OFFSET;
+                        mesh.position.set(point.x, maxHeight + yOffset, point.z);
+                        mesh.rotation.y = currentRotation;
+                        mesh.userData.type = 'plunger'; // Add for the group
+                        scene.add(mesh);
+                        body = new CANNON.Body({
+                            mass: 0,
+                            type: CANNON.Body.KINEMATIC,
+                            shape: new CANNON.Box(new CANNON.Vec3(PLUNGER_WIDTH / 2, PLUNGER_HEIGHT / 2, PLUNGER_LENGTH / 2)),
+                            material: plungerMaterial
+                        });
+                        body.position.set(point.x, maxHeight + yOffset, point.z);
+                        body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), currentRotation);
+                        world.addBody(body);
+                        plungers.push({ mesh, body, activationTime: 0 });
+                    }
+                    const initialState = createInitialState(point.x, maxHeight + yOffset, point.z, currentRotation);
+                    objects.push(mesh);
+                    objectBodies.push(body);
+                    initialStates.push(initialState);
+                    selectedTool.classList.remove('selected');
+                    selectedTool = null;
+                    previewType = null;
+                    if (previewMesh) {
+                        if (previewMesh.isGroup) {
+                            previewMesh.traverse(child => {
+                                if (child.isMesh) {
+                                    if (child.geometry) child.geometry.dispose();
+                                    if (child.material) child.material.dispose();
+                                }
+                            });
+                        } else if (previewMesh.isMesh) {
+                            if (previewMesh.geometry) previewMesh.geometry.dispose();
+                            if (previewMesh.material) previewMesh.material.dispose();
+                        }
+                        scene.remove(previewMesh);
+                        previewMesh = null;
+                    }
+                }
+            } else {
+                isStarted = true;
+                document.getElementById('instructions').style.display = 'none';
+                document.getElementById('tool-palette').style.display = 'none';
+                document.getElementById('reset-button').style.display = 'none';
+                document.getElementById('footer').style.display = 'none';
+                if (previewMesh) {
+                    if (previewMesh.isGroup) {
+                        previewMesh.traverse(child => {
+                            if (child.isMesh) {
+                                if (child.geometry) child.geometry.dispose();
+                                if (child.material) child.material.dispose();
+                            }
+                        });
+                    } else if (previewMesh.isMesh) {
+                        if (previewMesh.geometry) previewMesh.geometry.dispose();
+                        if (previewMesh.material) previewMesh.material.dispose();
+                    }
+                    scene.remove(previewMesh);
+                    previewMesh = null;
+                }
+                clearPreviewDominoes();
+                previewType = null;
+                resetHighlights();
+                console.log('Physics started');
+            }
+        });
+        // Rotation and deletion controls
+        document.addEventListener('keydown', (event) => {
+            if (previewMesh && scene.children.includes(previewMesh)) {
+                if (event.key === 'ArrowLeft') {
+                    currentRotation += Math.PI / 12;
+                    previewMesh.rotation.y = currentRotation;
+                    console.log('Left arrow (object rotation):', currentRotation);
+                } else if (event.key === 'ArrowRight') {
+                    currentRotation -= Math.PI / 12;
+                    previewMesh.rotation.y = currentRotation;
+                    console.log('Right arrow (object rotation):', currentRotation);
+                }
+            } else if (event.key === 'Backspace' && (!previewMesh || !scene.children.includes(previewMesh))) {
+                deleteHighlightedObject();
+            } else {
+                if (event.key === 'ArrowLeft') {
+                    cameraAngle += Math.PI / 36;
+                    camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
+                    camera.lookAt(0, 0, 0);
+                    console.log('Left arrow (scene rotation):', cameraAngle);
+                } else if (event.key === 'ArrowRight') {
+                    cameraAngle -= Math.PI / 36;
+                    camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
+                    camera.lookAt(0, 0, 0);
+                    console.log('Right arrow (scene rotation):', cameraAngle);
+                } else if (event.key === 'ArrowUp') {
+                    cameraRadius = Math.max(2.5, cameraRadius - 0.5);
+                    camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
+                    camera.lookAt(0, 0, 0);
+                    console.log('Up arrow (zoom in):', cameraRadius);
+                } else if (event.key === 'ArrowDown') {
+                    cameraRadius = Math.min(20, cameraRadius + 0.5);
+                    camera.position.set(cameraRadius * Math.cos(cameraAngle), 5, cameraRadius * Math.sin(cameraAngle));
+                    camera.lookAt(0, 0, 0);
+                    console.log('Down arrow (zoom out):', cameraRadius);
+                }
+            }
+        });
+        // Reset simulation
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                console.log('ESC pressed, resetting objects to initial positions');
+                console.log('Array lengths:', {
+                    objects: objects.length,
+                    objectBodies: objectBodies.length,
+                    initialStates: initialStates.length
+                });
+                isStarted = false;
+                world.bodies.forEach(body => {
+                    body.force.set(0, 0, 0);
+                    body.torque.set(0, 0, 0);
+                    body.velocity.set(0, 0, 0);
+                    body.angularVelocity.set(0, 0, 0);
+                });
+                for (let i = 0; i < objectBodies.length; i++) {
+                    if (initialStates[i] && initialStates[i].position && initialStates[i].quaternion) {
+                        try {
+                            if (initialStates[i].type === 'cannon') {
+                                objectBodies[i].position.copy(initialStates[i].position);
+                                objectBodies[i].quaternion.copy(initialStates[i].quaternion);
+                            } else if (initialStates[i].type === 'fallback') {
+                                objectBodies[i].position.set(
+                                    initialStates[i].position.x,
+                                    initialStates[i].position.y,
+                                    initialStates[i].position.z
+                                );
+                                objectBodies[i].quaternion.set(
+                                    initialStates[i].quaternion.x,
+                                    initialStates[i].quaternion.y,
+                                    initialStates[i].quaternion.z,
+                                    initialStates[i].quaternion.w
+                                );
+                            }
+                            objectBodies[i].velocity.set(0, 0, 0);
+                            objectBodies[i].angularVelocity.set(0, 0, 0);
+                            objects[i].position.copy(objectBodies[i].position);
+                            objects[i].quaternion.copy(objectBodies[i].quaternion);
+                            console.log(`Reset object ${i} to:`, {
+                                position: initialStates[i].type === 'cannon' ?
+                                    { x: initialStates[i].position.x, y: initialStates[i].position.y, z: initialStates[i].position.z } :
+                                    initialStates[i].position,
+                                quaternion: initialStates[i].type === 'cannon' ?
+                                    { x: initialStates[i].quaternion.x, y: initialStates[i].quaternion.y, z: initialStates[i].quaternion.z, w: initialStates[i].quaternion.w } :
+                                    initialStates[i].quaternion
+                            });
+                        } catch (error) {
+                            console.warn(`Failed to reset object ${i}:`, error);
+                        }
+                    } else {
+                        console.warn('Invalid initial state at index:', i, 'State:', initialStates[i]);
+                    }
+                }
+                plungers.forEach(plunger => {
+                    plunger.activationTime = 0;
+                });
+                currentRotation = 0;
+                if (previewMesh) {
+                    if (previewMesh.isGroup) {
+                        previewMesh.traverse(child => {
+                            if (child.isMesh) {
+                                if (child.geometry) child.geometry.dispose();
+                                if (child.material) child.material.dispose();
+                            }
+                        });
+                    } else if (previewMesh.isMesh) {
+                        if (previewMesh.geometry) previewMesh.geometry.dispose();
+                        if (previewMesh.material) previewMesh.material.dispose();
+                    }
+                    scene.remove(previewMesh);
+                    previewMesh = null;
+                }
+                clearPreviewDominoes();
+                previewType = null;
+                if (selectedTool) {
+                    selectedTool.classList.remove('selected');
+                    selectedTool = null;
+                }
+                resetHighlights();
+                document.getElementById('instructions').style.display = 'block';
+                document.getElementById('tool-palette').style.display = 'flex';
+                document.getElementById('reset-button').style.display = 'block';
+                document.getElementById('footer').style.display = 'block';
+                renderer.domElement.focus();
+                console.log('Simulation paused, objects reset, isStarted:', isStarted);
+            }
+        });
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            if (isStarted) {
+                plungers.forEach(plunger => {
+                    if (plunger.activationTime < PLUNGER_ACTIVATION_DURATION) {
+                        const forward = new CANNON.Vec3(0, 0, 1);
+                        plunger.body.quaternion.vmult(forward, forward);
+                        plunger.body.velocity = forward.scale(PLUNGER_SPEED);
+                        plunger.activationTime++;
+                    } else {
+                        plunger.body.velocity.set(0, 0, 0);
+                    }
+                });
+                world.step(1 / 60);
+            }
+            objects.forEach((mesh, i) => {
+                mesh.position.copy(objectBodies[i].position);
+                mesh.quaternion.copy(objectBodies[i].quaternion);
+            });
+            renderer.render(scene, camera);
+        }
+        animate();
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
