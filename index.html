@@ -8,7 +8,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: #404040;
+            background: linear-gradient(135deg, #2A2A2A, #4A5A6A);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -648,7 +648,7 @@
                 });
             } else if (mesh.isMesh) {
                 if (mesh.geometry) mesh.geometry.dispose();
-                if (mesh.material) child.material.dispose();
+                if (mesh.material) mesh.material.dispose();
             }
             scene.remove(mesh);
             world.removeBody(objectBodies[index]);
