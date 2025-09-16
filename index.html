@@ -8,7 +8,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background: linear-gradient(135deg, #2A2A2A, #4A5A6A);
+            background: linear-gradient(135deg, #aaaaaa, #aaaaaa);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -26,7 +26,7 @@
             position: absolute;
             top: 5px;
             left: 5px;
-            color: white;
+            color: #ffffff;
             font-family: Arial, sans-serif;
             font-size: 14px;
             background: rgba(0, 0, 0, 0.5);
@@ -53,56 +53,51 @@
             opacity: 0.8;
         }
         .tool.selected {
-            border: 1px solid yellow;
+            border: 1px solid #ffff00;
         }
         #ball-tool {
-            background-color: red;
+            background-color: #ff4500;
             border-radius: 50%;
         }
         #domino-tool {
-            background-color: blue;
+            background-color: #00ff00;
             width: 10px;
             height: 25px;
         }
         #box-tool {
-            background-color: green;
+            background-color: #ff00ff;
         }
         #plank-tool {
-            background-color: brown;
+            background-color: #008080;
             width: 40px;
             height: 10px;
         }
         #plunger-tool {
-            background-color: silver;
+            background-color: #c0c0c0;
             width: 30px;
             height: 15px;
         }
-        #cycle-palette-button, #reset-button {
+        #reset-button {
             position: absolute;
+            top: 50px;
             left: 5px;
             padding: 5px;
             background: rgba(0, 0, 0, 0.8);
-            color: white;
+            color: #ffffff;
             font-family: Arial, sans-serif;
             font-size: 18px;
             border: none;
             cursor: pointer;
             border-radius: 2.5px;
         }
-        #cycle-palette-button {
-            top: 100px;
-        }
-        #reset-button {
-            top: 50px;
-        }
-        #cycle-palette-button:hover, #reset-button:hover {
+        #reset-button:hover {
             background: rgba(50, 50, 50, 0.8);
         }
         #footer {
             position: absolute;
             bottom: 5px;
             right: 5px;
-            color: white;
+            color: #ffffff;
             font-family: Arial, sans-serif;
             font-size: 14px;
             background: rgba(0, 0, 0, 0.5);
@@ -113,7 +108,6 @@
 </head>
 <body>
     <div id="canvas-container">
-        <button id="cycle-palette-button">Cycle Palette</button>
         <div id="instructions">Click a tool to pick up, click canvas to place or drag for dominoes. Left/Right arrows to rotate object or scene. Up/Down arrows to zoom. Click canvas with no tool to start. ESC to reset. Backspace to remove highlighted object.</div>
         <button id="reset-button">Reset Game</button>
         <div id="tool-palette">
@@ -150,161 +144,6 @@
          * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
          * SOFTWARE.
          */
-        // Color palettes
-        const colorPalettes = [
-            {
-                name: 'Cool Dusk',
-                bodyGradient: ['#1E2A38', '#3B5A6F'],
-                tools: {
-                    ball: '#E63946',
-                    domino: '#457B9D',
-                    box: '#2A9D8F',
-                    plank: '#8D5524',
-                    plunger: '#A8A8A8'
-                },
-                ground: '#6B7280',
-                uiBackground: 'rgba(20, 33, 61, 0.8)',
-                uiBackgroundHover: 'rgba(30, 48, 90, 0.8)',
-                uiBackgroundLight: 'rgba(20, 33, 61, 0.5)'
-            },
-            {
-                name: 'Warm Sunset',
-                bodyGradient: ['#2D1B1B', '#5B3A29'],
-                tools: {
-                    ball: '#F4A261',
-                    domino: '#E76F51',
-                    box: '#8CB369',
-                    plank: '#A0522D',
-                    plunger: '#D4A017'
-                },
-                ground: '#8B5A2B',
-                uiBackground: 'rgba(60, 20, 20, 0.8)',
-                uiBackgroundHover: 'rgba(80, 30, 30, 0.8)',
-                uiBackgroundLight: 'rgba(60, 20, 20, 0.5)'
-            },
-            {
-                name: 'Midnight Forest',
-                bodyGradient: ['#1A2B27', '#3A5F4A'],
-                tools: {
-                    ball: '#D00000',
-                    domino: '#2E86AB',
-                    box: '#4A7043',
-                    plank: '#5C4033',
-                    plunger: '#B0BEC5'
-                },
-                ground: '#4B5E4A',
-                uiBackground: 'rgba(10, 43, 39, 0.8)',
-                uiBackgroundHover: 'rgba(20, 53, 49, 0.8)',
-                uiBackgroundLight: 'rgba(10, 43, 39, 0.5)'
-            },
-            {
-                name: 'Soft Lavender',
-                bodyGradient: ['#2C2A4A', '#5E548E'],
-                tools: {
-                    ball: '#FF70A6',
-                    domino: '#5E60CE',
-                    box: '#48BFE3',
-                    plank: '#7B506F',
-                    plunger: '#D8D8D8'
-                },
-                ground: '#9D8DF1',
-                uiBackground: 'rgba(30, 20, 60, 0.8)',
-                uiBackgroundHover: 'rgba(40, 30, 70, 0.8)',
-                uiBackgroundLight: 'rgba(30, 20, 60, 0.5)'
-            },
-            {
-                name: 'Desert Oasis',
-                bodyGradient: ['#3C2F2F', '#6B4E31'],
-                tools: {
-                    ball: '#EF8354',
-                    domino: '#468C98',
-                    box: '#8A9A5B',
-                    plank: '#8B4513',
-                    plunger: '#C2B280'
-                },
-                ground: '#A68A64',
-                uiBackground: 'rgba(60, 40, 30, 0.8)',
-                uiBackgroundHover: 'rgba(80, 50, 40, 0.8)',
-                uiBackgroundLight: 'rgba(60, 40, 30, 0.5)'
-            },
-            {
-                name: 'Urban Night',
-                bodyGradient: ['#1C2526', '#3A506B'],
-                tools: {
-                    ball: '#FF4D6D',
-                    domino: '#4361EE',
-                    box: '#52B788',
-                    plank: '#4A2C2A',
-                    plunger: '#BFC0C0'
-                },
-                ground: '#606C88',
-                uiBackground: 'rgba(15, 25, 50, 0.8)',
-                uiBackgroundHover: 'rgba(25, 35, 60, 0.8)',
-                uiBackgroundLight: 'rgba(15, 25, 50, 0.5)'
-            },
-            {
-                name: 'Autumn Glow',
-                bodyGradient: ['#2B1D0E', '#4E3B31'],
-                tools: {
-                    ball: '#D00000',
-                    domino: '#3D6B72',
-                    box: '#E6B800',
-                    plank: '#8B3A3A',
-                    plunger: '#C9A66B'
-                },
-                ground: '#8B5A2B',
-                uiBackground: 'rgba(50, 30, 20, 0.8)',
-                uiBackgroundHover: 'rgba(60, 40, 30, 0.8)',
-                uiBackgroundLight: 'rgba(50, 30, 20, 0.5)'
-            },
-            {
-                name: 'Ocean Breeze',
-                bodyGradient: ['#1B263B', '#415A77'],
-                tools: {
-                    ball: '#EF476F',
-                    domino: '#118AB2',
-                    box: '#06D6A0',
-                    plank: '#5C4033',
-                    plunger: '#E0E1DD'
-                },
-                ground: '#778DA9',
-                uiBackground: 'rgba(10, 30, 50, 0.8)',
-                uiBackgroundHover: 'rgba(20, 40, 60, 0.8)',
-                uiBackgroundLight: 'rgba(10, 30, 50, 0.5)'
-            },
-            {
-                name: 'Retro Pastel',
-                bodyGradient: ['#2D3047', '#596F62'],
-                tools: {
-                    ball: '#FF9999',
-                    domino: '#89C2D9',
-                    box: '#A3BFFA',
-                    plank: '#C19A6B',
-                    plunger: '#E2D0D0'
-                },
-                ground: '#B7C4CF',
-                uiBackground: 'rgba(40, 40, 60, 0.8)',
-                uiBackgroundHover: 'rgba(50, 50, 70, 0.8)',
-                uiBackgroundLight: 'rgba(40, 40, 60, 0.5)'
-            },
-            {
-                name: 'Golden Twilight',
-                bodyGradient: ['#2B211B', '#5A4636'],
-                tools: {
-                    ball: '#FF6B6B',
-                    domino: '#4A8296',
-                    box: '#8BC34A',
-                    plank: '#6D4C41',
-                    plunger: '#FFD700'
-                },
-                ground: '#8B6F47',
-                uiBackground: 'rgba(50, 35, 25, 0.8)',
-                uiBackgroundHover: 'rgba(60, 45, 35, 0.8)',
-                uiBackgroundLight: 'rgba(50, 35, 25, 0.5)'
-            }
-        ];
-        let currentPaletteIndex = 0;
-
         // Verify Cannon.js is loaded
         console.log('CANNON loaded:', typeof CANNON !== 'undefined' && typeof CANNON.Vec3 === 'function' && typeof CANNON.Quaternion === 'function');
         // Set up the scene, camera, and renderer
@@ -407,85 +246,13 @@
         const DOMINO_WIDTH = 0.1;
         const DOMINO_DEPTH = 0.5;
         const DOMINO_HEIGHT = 0.95;
-        const MIN_DOMINO_SEPARATION = DOMINO_SPACING * 0.8;
+        const MIN_DOMINO_SEPARATION = DOMINO_SPACING * 0.3;
         const PLUNGER_WIDTH = 0.25;
         const PLUNGER_HEIGHT = 0.15;
         const PLUNGER_LENGTH = 0.75;
         const PLUNGER_SPEED = 2.5;
         const PLUNGER_ACTIVATION_DURATION = 8;
         const PLUNGER_Y_OFFSET = 0.4;
-        // Function to convert hex to Three.js color
-        function hexToThreeColor(hex) {
-            return new THREE.Color(hex);
-        }
-        // Function to apply color palette
-        function applyColorPalette(index) {
-            const palette = colorPalettes[index];
-            // Update body background
-            document.body.style.background = `linear-gradient(135deg, ${palette.bodyGradient[0]}, ${palette.bodyGradient[1]})`;
-            // Update tool colors
-            document.getElementById('ball-tool').style.backgroundColor = palette.tools.ball;
-            document.getElementById('domino-tool').style.backgroundColor = palette.tools.domino;
-            document.getElementById('box-tool').style.backgroundColor = palette.tools.box;
-            document.getElementById('plank-tool').style.backgroundColor = palette.tools.plank;
-            document.getElementById('plunger-tool').style.backgroundColor = palette.tools.plunger;
-            // Update UI backgrounds
-            document.getElementById('instructions').style.background = palette.uiBackgroundLight;
-            document.getElementById('tool-palette').style.background = palette.uiBackground;
-            document.getElementById('cycle-palette-button').style.background = palette.uiBackground;
-            document.getElementById('reset-button').style.background = palette.uiBackground;
-            document.getElementById('footer').style.background = palette.uiBackgroundLight;
-            document.getElementById('cycle-palette-button').onmouseover = () => {
-                document.getElementById('cycle-palette-button').style.background = palette.uiBackgroundHover;
-            };
-            document.getElementById('cycle-palette-button').onmouseout = () => {
-                document.getElementById('cycle-palette-button').style.background = palette.uiBackground;
-            };
-            document.getElementById('reset-button').onmouseover = () => {
-                document.getElementById('reset-button').style.background = palette.uiBackgroundHover;
-            };
-            document.getElementById('reset-button').onmouseout = () => {
-                document.getElementById('reset-button').style.background = palette.uiBackground;
-            };
-            // Update ground color
-            groundMesh.material.color.set(hexToThreeColor(palette.ground));
-            groundMesh.material.needsUpdate = true;
-            // Update existing objects
-            objects.forEach(obj => {
-                if (obj.isGroup) {
-                    obj.traverse(child => {
-                        if (child.isMesh && child.material && child.userData.type) {
-                            if (child.userData.type === 'plunger') {
-                                child.material.color.set(hexToThreeColor(palette.tools.plunger));
-                            } else if (child.userData.type === 'plunger_arrow') {
-                                child.material.color.set(hexToThreeColor(palette.tools.ball));
-                            } else {
-                                child.material.color.set(hexToThreeColor(palette.tools[child.userData.type]));
-                            }
-                            child.material.needsUpdate = true;
-                            child.userData.originalColor = child.material.color.clone();
-                        }
-                    });
-                } else if (obj.isMesh && obj.material && obj.userData.type) {
-                    obj.material.color.set(hexToThreeColor(palette.tools[obj.userData.type]));
-                    obj.material.needsUpdate = true;
-                    obj.userData.originalColor = obj.material.color.clone();
-                }
-            });
-            // Update preview dominoes
-            previewDominoes.forEach(mesh => {
-                mesh.material.color.set(hexToThreeColor(palette.tools.domino));
-                mesh.material.needsUpdate = true;
-            });
-            console.log(`Applied palette: ${palette.name}`);
-        }
-        // Cycle palette button event listener
-        document.getElementById('cycle-palette-button').addEventListener('click', () => {
-            currentPaletteIndex = (currentPaletteIndex + 1) % colorPalettes.length;
-            applyColorPalette(currentPaletteIndex);
-        });
-        // Apply initial palette
-        applyColorPalette(currentPaletteIndex);
         // Function to create and store initial state with fallback
         function createInitialState(x, y, z, rotation) {
             let initialState;
@@ -510,7 +277,7 @@
         // Initialize domino preview pool
         function initializePreviewDominoes() {
             const geometry = new THREE.BoxGeometry(DOMINO_WIDTH, DOMINO_HEIGHT, DOMINO_DEPTH);
-            const material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(colorPalettes[currentPaletteIndex].tools.domino), transparent: true, opacity: 0.5 });
+            const material = new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
             for (let i = 0; i < MAX_PREVIEW_DOMINOES; i++) {
                 const mesh = new THREE.Mesh(geometry, material);
                 mesh.castShadow = true;
@@ -554,7 +321,7 @@
                             child.material.opacity = 0.7;
                         }
                     });
-                } else if (obj.isMesh && obj.material && child.userData.originalColor) {
+                } else if (obj.isMesh && obj.material && obj.userData.originalColor) {
                     obj.material.opacity = 0.7;
                 }
             }
@@ -660,31 +427,30 @@
                 previewMesh = null;
             }
             let geometry, material, arrowGeometry, arrowMaterial;
-            const palette = colorPalettes[currentPaletteIndex];
             if (type === 'ball') {
                 geometry = new THREE.SphereGeometry(0.25, 32, 32);
-                material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.ball), transparent: true, opacity: 0.5 });
+                material = new THREE.MeshStandardMaterial({ color: 0xff4500, transparent: true, opacity: 0.5 });
                 previewMesh = new THREE.Mesh(geometry, material);
             } else if (type === 'domino') {
                 geometry = new THREE.BoxGeometry(DOMINO_WIDTH, DOMINO_HEIGHT, DOMINO_DEPTH);
-                material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.domino), transparent: true, opacity: 0.5 });
+                material = new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 0.5 });
                 previewMesh = new THREE.Mesh(geometry, material);
             } else if (type === 'box') {
                 geometry = new THREE.BoxGeometry(1, 1, 1);
-                material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.box), transparent: true, opacity: 0.5 });
+                material = new THREE.MeshStandardMaterial({ color: 0xff00ff, transparent: true, opacity: 0.5 });
                 previewMesh = new THREE.Mesh(geometry, material);
             } else if (type === 'plank') {
                 geometry = new THREE.BoxGeometry(4, 0.2, 1);
-                material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.plank), transparent: true, opacity: 0.5 });
+                material = new THREE.MeshStandardMaterial({ color: 0x008080, transparent: true, opacity: 0.5 });
                 previewMesh = new THREE.Mesh(geometry, material);
             } else if (type === 'plunger') {
                 previewMesh = new THREE.Group();
                 geometry = new THREE.BoxGeometry(PLUNGER_WIDTH, PLUNGER_HEIGHT, PLUNGER_LENGTH);
-                material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.plunger), transparent: true, opacity: 0.5 });
+                material = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, transparent: true, opacity: 0.5 });
                 const boxMesh = new THREE.Mesh(geometry, material);
                 previewMesh.add(boxMesh);
                 arrowGeometry = new THREE.ConeGeometry(0.1, 0.25, 32);
-                arrowMaterial = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.ball), transparent: true, opacity: 0.5 });
+                arrowMaterial = new THREE.MeshStandardMaterial({ color: 0xff4500, transparent: true, opacity: 0.5 });
                 const arrowMesh = new THREE.Mesh(arrowGeometry, arrowMaterial);
                 arrowMesh.position.set(0, PLUNGER_HEIGHT / 2 + 0.05, 0);
                 arrowMesh.rotation.x = Math.PI / 2;
@@ -744,9 +510,8 @@
                 console.log('Domino placement skipped due to overlap at:', { x, z });
                 return;
             }
-            const palette = colorPalettes[currentPaletteIndex];
             const dominoGeometry = new THREE.BoxGeometry(DOMINO_WIDTH, DOMINO_HEIGHT, DOMINO_DEPTH);
-            const material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.domino), transparent: true, opacity: 1.0 });
+            const material = new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 1.0 });
             const mesh = new THREE.Mesh(dominoGeometry, material);
             mesh.userData.originalColor = material.color.clone();
             mesh.userData.type = 'domino';
@@ -856,7 +621,6 @@
             resetHighlights();
             document.getElementById('instructions').style.display = 'block';
             document.getElementById('tool-palette').style.display = 'flex';
-            document.getElementById('cycle-palette-button').style.display = 'block';
             document.getElementById('reset-button').style.display = 'block';
             document.getElementById('footer').style.display = 'block';
             renderer.domElement.focus();
@@ -1061,10 +825,9 @@
                         return;
                     }
                     let mesh, body, yOffset;
-                    const palette = colorPalettes[currentPaletteIndex];
                     if (type === 'ball') {
                         const ballGeometry = new THREE.SphereGeometry(0.25, 32, 32);
-                        const material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.ball), transparent: true, opacity: 1.0 });
+                        const material = new THREE.MeshStandardMaterial({ color: 0xff4500, transparent: true, opacity: 1.0 });
                         mesh = new THREE.Mesh(ballGeometry, material);
                         mesh.userData.originalColor = material.color.clone();
                         mesh.userData.type = 'ball';
@@ -1083,7 +846,7 @@
                         world.addBody(body);
                     } else if (type === 'box') {
                         const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
-                        const material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.box), transparent: true, opacity: 1.0 });
+                        const material = new THREE.MeshStandardMaterial({ color: 0xff00ff, transparent: true, opacity: 1.0 });
                         mesh = new THREE.Mesh(boxGeometry, material);
                         mesh.userData.originalColor = material.color.clone();
                         mesh.userData.type = 'box';
@@ -1101,7 +864,7 @@
                         world.addBody(body);
                     } else if (type === 'plank') {
                         const plankGeometry = new THREE.BoxGeometry(4, 0.2, 1);
-                        const material = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.plank), transparent: true, opacity: 1.0 });
+                        const material = new THREE.MeshStandardMaterial({ color: 0x008080, transparent: true, opacity: 1.0 });
                         mesh = new THREE.Mesh(plankGeometry, material);
                         mesh.userData.originalColor = material.color.clone();
                         mesh.userData.type = 'plank';
@@ -1120,14 +883,14 @@
                     } else if (type === 'plunger') {
                         mesh = new THREE.Group();
                         const plungerGeometry = new THREE.BoxGeometry(PLUNGER_WIDTH, PLUNGER_HEIGHT, PLUNGER_LENGTH);
-                        const boxMaterial = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.plunger), transparent: true, opacity: 1.0 });
+                        const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, transparent: true, opacity: 1.0 });
                         const boxMesh = new THREE.Mesh(plungerGeometry, boxMaterial);
                         boxMesh.userData.originalColor = boxMaterial.color.clone();
                         boxMesh.userData.type = 'plunger';
                         boxMesh.castShadow = true;
                         mesh.add(boxMesh);
                         const arrowGeometry = new THREE.ConeGeometry(0.1, 0.25, 32);
-                        const arrowMaterial = new THREE.MeshStandardMaterial({ color: hexToThreeColor(palette.tools.ball), transparent: true, opacity: 1.0 });
+                        const arrowMaterial = new THREE.MeshStandardMaterial({ color: 0xff4500, transparent: true, opacity: 1.0 });
                         const arrowMesh = new THREE.Mesh(arrowGeometry, arrowMaterial);
                         arrowMesh.userData.originalColor = arrowMaterial.color.clone();
                         arrowMesh.userData.type = 'plunger_arrow';
@@ -1178,7 +941,6 @@
                 isStarted = true;
                 document.getElementById('instructions').style.display = 'none';
                 document.getElementById('tool-palette').style.display = 'none';
-                document.getElementById('cycle-palette-button').style.display = 'none';
                 document.getElementById('reset-button').style.display = 'none';
                 document.getElementById('footer').style.display = 'none';
                 if (previewMesh) {
@@ -1327,7 +1089,6 @@
                 resetHighlights();
                 document.getElementById('instructions').style.display = 'block';
                 document.getElementById('tool-palette').style.display = 'flex';
-                document.getElementById('cycle-palette-button').style.display = 'block';
                 document.getElementById('reset-button').style.display = 'block';
                 document.getElementById('footer').style.display = 'block';
                 renderer.domElement.focus();
@@ -1364,5 +1125,4 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
-</body>
 </html>
